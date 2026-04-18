@@ -77,6 +77,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
+  bool _isFetchingStats = false;
+
   void _startTrafficMonitor() {
     _trafficTimer?.cancel();
     _rxSpots.clear();
@@ -84,32 +86,38 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     _timeX = 0;
 
     _trafficTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
-      if (_selectedInterface == null || !mounted) return;
+      if (_selectedInterface == null || !mounted || _isFetchingStats) return;
+      _isFetchingStats = true;
       
-      final client = ref.read(mikrotikClientProvider);
-      final traffic = await client.getInterfaceTraffic(_selectedInterface!);
-      
-      if (traffic.isNotEmpty) {
-        final rx = double.tryParse(traffic.first['rx-bits-per-second'] ?? '0') ?? 0;
-        final tx = double.tryParse(traffic.first['tx-bits-per-second'] ?? '0') ?? 0;
+      try {
+        final client = ref.read(mikrotikClientProvider);
+        final traffic = await client.getInterfaceTraffic(_selectedInterface!);
         
-        // Convert to Mbps for better chart reading
-        final rxMbps = rx / 1000000;
-        final txMbps = tx / 1000000;
+        if (traffic.isNotEmpty) {
+          final rx = double.tryParse(traffic.first['rx-bits-per-second'] ?? '0') ?? 0;
+          final tx = double.tryParse(traffic.first['tx-bits-per-second'] ?? '0') ?? 0;
+          
+          final rxMbps = rx / 1000000;
+          final txMbps = tx / 1000000;
 
-        if (mounted) {
-          setState(() {
-            _timeX += 1;
-            _rxSpots.add(FlSpot(_timeX, rxMbps));
-            _txSpots.add(FlSpot(_timeX, txMbps));
-            
-            // Keep only latest 20 points
-            if (_rxSpots.length > 20) {
-              _rxSpots.removeAt(0);
-              _txSpots.removeAt(0);
-            }
-          });
+          if (mounted) {
+            setState(() {
+              _timeX += 1;
+              _rxSpots.add(FlSpot(_timeX, rxMbps));
+              _txSpots.add(FlSpot(_timeX, txMbps));
+              
+              if (_rxSpots.length > 20) {
+                _rxSpots.removeAt(0);
+                _txSpots.removeAt(0);
+              }
+            });
+          }
         }
+        
+        // Refresh PPPoE Summary Real-time calculation sequentially
+        await _fetchSummaryData();
+      } finally {
+        _isFetchingStats = false;
       }
     });
   }

@@ -172,6 +172,49 @@ class RouterOsClientHelper {
     }
   }
 
+  Future<bool> deletePppoeProfile(String id) async {
+    if (_client == null) return false;
+    try {
+      await _client!.talk(['/ppp/profile/remove', '=.id=$id']);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> savePppoeProfile(Map<String, String> data, {String? id}) async {
+    if (_client == null) return false;
+    try {
+      String action = id == null ? 'add' : 'set';
+      List<String> command = ['/ppp/profile/$action'];
+      
+      if (id != null) {
+        command.add('=.id=$id');
+      }
+      
+      data.forEach((key, value) {
+        if (value.isNotEmpty) {
+          command.add('=$key=$value');
+        }
+      });
+      
+      await _client!.talk(command);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> deletePppoeActive(String id) async {
+    if (_client == null) return false;
+    try {
+      await _client!.talk(['/ppp/active/remove', '=.id=$id']);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // --- FIREWALL APIS ---
 
   Future<List<Map<String, String>>> getFirewallRules(String type) async {

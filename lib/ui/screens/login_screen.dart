@@ -135,6 +135,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           keyboardType: type,
           obscureText: obscure,
           validator: validator,
+          style: const TextStyle(color: Colors.black),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
@@ -228,11 +229,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               child: DropdownButton<LoginProfile>(
                                 isExpanded: true,
                                 hint: const Text('Select Saved Profile'),
+                                style: const TextStyle(color: Colors.black, fontSize: 14),
                                 value: _selectedProfile,
                                 items: profiles.map((p) {
                                   return DropdownMenuItem(
                                     value: p,
-                                    child: Text('\${p.profileName} (\${p.host})', style: const TextStyle(fontSize: 14)),
+                                    child: Text('${p.profileName} (${p.host})', style: const TextStyle(fontSize: 14, color: Colors.black)),
                                   );
                                 }).toList(),
                                 onChanged: (val) {

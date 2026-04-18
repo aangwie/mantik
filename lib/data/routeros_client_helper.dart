@@ -46,6 +46,16 @@ class RouterOsClientHelper {
     }
   }
 
+  Future<List<Map<String, String>>> getPppoeProfiles() async {
+    if (_client == null) return [];
+    try {
+      var result = await _client!.talk(['/ppp/profile/print']);
+      return _parseResult(result);
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<List<Map<String, String>>> getInterfaces() async {
     if (_client == null) return [];
     try {
@@ -61,7 +71,7 @@ class RouterOsClientHelper {
     try {
       var result = await _client!.talk([
         '/interface/monitor-traffic',
-        '=interface=\$interface',
+        '=interface=$interface',
         '=once='
       ]);
       return _parseResult(result);
@@ -98,7 +108,7 @@ class RouterOsClientHelper {
   Future<bool> enablePppoeSecret(String id) async {
     if (_client == null) return false;
     try {
-      await _client!.talk(['/ppp/secret/enable', '=.id=\$id']);
+      await _client!.talk(['/ppp/secret/enable', '=.id=$id']);
       return true;
     } catch (e) {
       return false;
@@ -108,7 +118,7 @@ class RouterOsClientHelper {
   Future<bool> disablePppoeSecret(String id) async {
     if (_client == null) return false;
     try {
-      await _client!.talk(['/ppp/secret/disable', '=.id=\$id']);
+      await _client!.talk(['/ppp/secret/disable', '=.id=$id']);
       return true;
     } catch (e) {
       return false;
@@ -118,7 +128,7 @@ class RouterOsClientHelper {
   Future<bool> deletePppoeSecret(String id) async {
     if (_client == null) return false;
     try {
-      await _client!.talk(['/ppp/secret/remove', '=.id=\$id']);
+      await _client!.talk(['/ppp/secret/remove', '=.id=$id']);
       return true;
     } catch (e) {
       return false;

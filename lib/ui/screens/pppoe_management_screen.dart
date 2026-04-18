@@ -12,6 +12,7 @@ class PppoeManagementScreen extends ConsumerStatefulWidget {
 class _PppoeManagementScreenState extends ConsumerState<PppoeManagementScreen> {
   List<Map<String, String>> _secrets = [];
   List<Map<String, String>> _activePppoes = [];
+  List<Map<String, String>> _profiles = [];
   String _filter = 'All'; // 'All', 'Active', 'Inactive'
   bool _isLoading = false;
 
@@ -26,10 +27,12 @@ class _PppoeManagementScreenState extends ConsumerState<PppoeManagementScreen> {
     final client = ref.read(mikrotikClientProvider);
     final active = await client.getPppoeActive();
     final secrets = await client.getPppoeSecrets();
+    final profiles = await client.getPppoeProfiles();
     if (mounted) {
       setState(() {
         _activePppoes = active;
         _secrets = secrets;
+        _profiles = profiles;
         _isLoading = false;
       });
     }
@@ -82,43 +85,64 @@ class _PppoeManagementScreenState extends ConsumerState<PppoeManagementScreen> {
     }
   }
 
+  List<String> get _profileNames {
+    List<String> names = _profiles.map((p) => p['name'] ?? 'default').toList();
+    if (names.isEmpty) names.add('default');
+    return names.toSet().toList();
+  }
+
   void _showAddDialog() {
     final nameCtrl = TextEditingController();
     final passCtrl = TextEditingController();
-    final serviceCtrl = TextEditingController(text: 'pppoe');
-    final profileCtrl = TextEditingController(text: 'default');
+    final pNames = _profileNames;
+    String selectedService = 'pppoe';
+    String selectedProfile = pNames.first;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add PPPoE Secret'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name (Username)')),
-              TextField(controller: passCtrl, decoration: const InputDecoration(labelText: 'Password')),
-              TextField(controller: serviceCtrl, decoration: const InputDecoration(labelText: 'Service')),
-              TextField(controller: profileCtrl, decoration: const InputDecoration(labelText: 'Profile')),
-            ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateBuilder) => AlertDialog(
+          title: const Text('Add PPPoE Secret'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name (Username)')),
+                TextField(controller: passCtrl, decoration: const InputDecoration(labelText: 'Password')),
+                DropdownButtonFormField<String>(
+                  value: selectedService,
+                  decoration: const InputDecoration(labelText: 'Service'),
+                  items: ['any', 'async', 'l2tp', 'ovpn', 'pppoe', 'pptp', 'sstp']
+                      .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                      .toList(),
+                  onChanged: (val) => setStateBuilder(() { if (val != null) selectedService = val; }),
+                ),
+                DropdownButtonFormField<String>(
+                  value: selectedProfile,
+                  decoration: const InputDecoration(labelText: 'Profile'),
+                  items: pNames.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                  onChanged: (val) => setStateBuilder(() { if (val != null) selectedProfile = val; }),
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameCtrl.text.isNotEmpty) {
-                 final client = ref.read(mikrotikClientProvider);
-                 await client.addPppoeSecret(nameCtrl.text, passCtrl.text, serviceCtrl.text, profileCtrl.text);
-                 if (ctx.mounted) {
-                   Navigator.pop(ctx);
-                   _fetchSecrets();
-                 }
-              }
-            },
-            child: const Text('Save'),
-          )
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameCtrl.text.isNotEmpty) {
+                   final client = ref.read(mikrotikClientProvider);
+                   await client.addPppoeSecret(nameCtrl.text, passCtrl.text, selectedService, selectedProfile);
+                   if (ctx.mounted) {
+                     Navigator.pop(ctx);
+                     _fetchSecrets();
+                   }
+                }
+              },
+              child: const Text('Save'),
+            )
+          ],
+        )
       ),
     );
   }
@@ -126,41 +150,60 @@ class _PppoeManagementScreenState extends ConsumerState<PppoeManagementScreen> {
   void _showEditDialog(Map<String, String> secret) {
     final nameCtrl = TextEditingController(text: secret['name']);
     final passCtrl = TextEditingController();
-    final serviceCtrl = TextEditingController(text: secret['service'] ?? 'pppoe');
-    final profileCtrl = TextEditingController(text: secret['profile'] ?? 'default');
     final id = secret['.id'];
+    
+    final pNames = _profileNames;
+    String selectedService = secret['service'] ?? 'pppoe';
+    if (!['any', 'async', 'l2tp', 'ovpn', 'pppoe', 'pptp', 'sstp'].contains(selectedService)) selectedService = 'pppoe';
+    
+    String selectedProfile = secret['profile'] ?? 'default';
+    if (!pNames.contains(selectedProfile)) selectedProfile = pNames.first;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Edit PPPoE Secret'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name (Username)')),
-              TextField(controller: passCtrl, decoration: const InputDecoration(labelText: 'Password (leave blank to keep current)'), obscureText: true),
-              TextField(controller: serviceCtrl, decoration: const InputDecoration(labelText: 'Service')),
-              TextField(controller: profileCtrl, decoration: const InputDecoration(labelText: 'Profile')),
-            ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateBuilder) => AlertDialog(
+          title: const Text('Edit PPPoE Secret'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name (Username)')),
+                TextField(controller: passCtrl, decoration: const InputDecoration(labelText: 'Password (leave blank to keep current)'), obscureText: true),
+                DropdownButtonFormField<String>(
+                  value: selectedService,
+                  decoration: const InputDecoration(labelText: 'Service'),
+                  items: ['any', 'async', 'l2tp', 'ovpn', 'pppoe', 'pptp', 'sstp']
+                      .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                      .toList(),
+                  onChanged: (val) => setStateBuilder(() { if (val != null) selectedService = val; }),
+                ),
+                DropdownButtonFormField<String>(
+                  value: selectedProfile,
+                  decoration: const InputDecoration(labelText: 'Profile'),
+                  items: pNames.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                  onChanged: (val) => setStateBuilder(() { if (val != null) selectedProfile = val; }),
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameCtrl.text.isNotEmpty && id != null) {
-                 final client = ref.read(mikrotikClientProvider);
-                 await client.editPppoeSecret(id, nameCtrl.text, passCtrl.text, serviceCtrl.text, profileCtrl.text);
-                 if (ctx.mounted) {
-                   Navigator.pop(ctx);
-                   _fetchSecrets();
-                 }
-              }
-            },
-            child: const Text('Update'),
-          )
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameCtrl.text.isNotEmpty && id != null) {
+                   final client = ref.read(mikrotikClientProvider);
+                   await client.editPppoeSecret(id, nameCtrl.text, passCtrl.text, selectedService, selectedProfile);
+                   if (ctx.mounted) {
+                     Navigator.pop(ctx);
+                     _fetchSecrets();
+                   }
+                }
+              },
+              child: const Text('Update'),
+            )
+          ],
+        )
       ),
     );
   }

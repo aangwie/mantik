@@ -53,7 +53,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       setState(() {
         _activePppoe = active.length;
         _totalPppoe = secrets.length;
-        _offlinePppoe = _totalPppoe - _activePppoe;
+        int activeInSecrets = active.where((a) => secrets.any((s) => s['name'] == a['name'])).length;
+        _offlinePppoe = secrets.length - activeInSecrets;
       });
     }
   }

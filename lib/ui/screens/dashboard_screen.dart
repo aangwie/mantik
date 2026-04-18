@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../providers/mikrotik_provider.dart';
 import 'pppoe_management_screen.dart';
 import 'simple_queue_screen.dart';
+import 'firewall_screen.dart';
 import 'login_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -52,9 +53,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (mounted) {
       setState(() {
         _activePppoe = active.length;
-        _totalPppoe = secrets.length;
         int activeInSecrets = active.where((a) => secrets.any((s) => s['name'] == a['name'])).length;
         _offlinePppoe = secrets.length - activeInSecrets;
+        _totalPppoe = _activePppoe + _offlinePppoe;
       });
     }
   }
@@ -147,7 +148,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             title: const Text('PPPoE Secrets'),
             onTap: () {
               Navigator.pop(context); // Close Drawer
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const PppoeManagementScreen()));
+              _trafficTimer?.cancel();
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const PppoeManagementScreen())).then((_) {
+                _startTrafficMonitor();
+              });
             },
           ),
           ListTile(
@@ -155,7 +159,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             title: const Text('Simple Queues'),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const SimpleQueueScreen()));
+              _trafficTimer?.cancel();
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const SimpleQueueScreen())).then((_) {
+                _startTrafficMonitor();
+              });
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.shield),
+            title: const Text('Firewall'),
+            onTap: () {
+              Navigator.pop(context);
+              _trafficTimer?.cancel();
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const FirewallScreen())).then((_) {
+                _startTrafficMonitor();
+              });
             },
           ),
           const Divider(),

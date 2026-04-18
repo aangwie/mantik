@@ -95,6 +95,7 @@ class RouterOsClientHelper {
     try {
       var result = await _client!.talk([
         '/queue/simple/print',
+        '=stats=',
         '=?name=$name'
       ]);
       final parsed = _parseResult(result);
@@ -168,6 +169,62 @@ class RouterOsClientHelper {
       return true;
     } catch (e) {
        return false;
+    }
+  }
+
+  // --- FIREWALL APIS ---
+
+  Future<List<Map<String, String>>> getFirewallRules(String type) async {
+    if (_client == null) return [];
+    try {
+      var result = await _client!.talk(['/ip/firewall/$type/print']);
+      return _parseResult(result);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<bool> toggleFirewallRule(String type, String id, bool enable) async {
+    if (_client == null) return false;
+    final act = enable ? 'enable' : 'disable';
+    try {
+      await _client!.talk(['/ip/firewall/$type/$act', '=.id=$id']);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> deleteFirewallRule(String type, String id) async {
+    if (_client == null) return false;
+    try {
+      await _client!.talk(['/ip/firewall/$type/remove', '=.id=$id']);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> saveFirewallRule(String type, Map<String, String> data, {String? id}) async {
+    if (_client == null) return false;
+    try {
+      String action = id == null ? 'add' : 'set';
+      List<String> command = ['/ip/firewall/$type/$action'];
+      
+      if (id != null) {
+        command.add('=.id=$id');
+      }
+      
+      data.forEach((key, value) {
+        if (value.isNotEmpty) {
+          command.add('=$key=$value');
+        }
+      });
+      
+      await _client!.talk(command);
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 
